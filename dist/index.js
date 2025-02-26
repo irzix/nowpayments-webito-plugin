@@ -56,25 +56,35 @@ var process_1 = __importDefault(require("process"));
 var webito_plugin_sdk_1 = __importDefault(require("webito-plugin-sdk"));
 var starter = new webito_plugin_sdk_1.default.WebitoPlugin('starter');
 starter.registerHook(webito_plugin_sdk_1.default.hooks.paymentsCreate, function (_a) {
-    var vars = _a.vars, data = _a.data;
+    var variables = _a.variables, data = _a.data;
     return __awaiter(void 0, void 0, void 0, function () {
         var inputdata, create;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     inputdata = {
-                        "merchant_id": vars.merchant,
-                        "amount": data.amount * 10,
-                        "callback_url": data.callback,
-                        "description": data.payment,
+                        "price_amount": data.amount,
+                        "price_currency": data.gateway.currency.code,
+                        "order_id": data.payment,
+                        "order_description": data.payment,
+                        "ipn_callback_url": data.callback,
+                        "success_url": data.callback,
+                        "cancel_url": data.callback,
+                        "is_fixed_rate": true,
+                        "is_fee_paid_by_user": variables.feebyuser
                     };
-                    return [4 /*yield*/, axios_1.default.post('https://payment.zarinpal.com/pg/v4/payment/request.json', inputdata)];
+                    return [4 /*yield*/, axios_1.default.post('https://api.nowpayments.io/v1/invoice', inputdata, {
+                            headers: {
+                                'x-api-key': variables.apikey,
+                                'Content-Type': 'application/json'
+                            }
+                        })];
                 case 1:
                     create = _b.sent();
-                    if (create.data.code == 100) {
+                    if (create.data.invoice_url) {
                         return [2 /*return*/, {
                                 status: true,
-                                data: __assign(__assign({}, (create.data || {})), { url: 'https://payment.zarinpal.com/pg/StartPay/' + create.data.authority })
+                                data: __assign(__assign({}, (create.data || {})), { url: create.data.invoice_url })
                             }];
                     }
                     else {
@@ -88,28 +98,27 @@ starter.registerHook(webito_plugin_sdk_1.default.hooks.paymentsCreate, function 
     });
 });
 starter.registerHook(webito_plugin_sdk_1.default.hooks.paymentsVerify, function (_a) {
-    var vars = _a.vars, data = _a.data;
+    var variables = _a.variables, data = _a.data;
     return __awaiter(void 0, void 0, void 0, function () {
-        var inputdata, verify;
+        var verify;
         return __generator(this, function (_b) {
             switch (_b.label) {
-                case 0:
-                    inputdata = {
-                        "merchant_id": vars.merchant,
-                        "authority": data.payment.transaction.authority,
-                        "amount": data.payment.amount * 10,
-                    };
-                    return [4 /*yield*/, axios_1.default.post('https://payment.zarinpal.com/pg/v4/payment/verify.json', inputdata)];
+                case 0: return [4 /*yield*/, axios_1.default.get(('https://api.nowpayments.io/v1/payment/' + data.payment.transaction.id), {
+                        headers: {
+                            'x-api-key': variables.apikey,
+                            'Content-Type': 'application/json'
+                        }
+                    })];
                 case 1:
                     verify = _b.sent();
-                    if ((verify.data.code == 100) || (verify.data.code == 101)) {
+                    if (verify.data.payment_status == 'finished') {
                         return [2 /*return*/, {
                                 status: true,
                             }];
                     }
                     else {
                         return [2 /*return*/, {
-                                status: false,
+                                status: true,
                             }];
                     }
                     return [2 /*return*/];
